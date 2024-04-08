@@ -164,7 +164,7 @@ def faq(message):
 def get_users():
     connection = sqlite3.connect("tg_bot.db")
     cursor = connection.cursor()
-    cursor.execute("SELECT id, username FROM users")
+    cursor.execute("SELECT id, first_name, last_name FROM users")
     users = cursor.fetchall()
     cursor.close()
     connection.close()
@@ -189,8 +189,8 @@ def add_task(message):
 def show_users(message):
     users = user_data[message.chat.id]['users']
     markup = types.ReplyKeyboardMarkup(row_width=1)
-    for user_id, username in users:
-        button_text = f"{username} (user_id: {user_id})"
+    for user_id, first_name, last_name in users:
+        button_text = f"{first_name} {last_name} (user_id: {user_id})"
         markup.add(types.KeyboardButton(button_text))
     bot.send_message(message.chat.id, "Выберите пользователя из списка:", reply_markup=markup)
 
@@ -199,14 +199,13 @@ def show_users(message):
 @bot.message_handler(func=lambda message: True)
 def handle_user_selection(message):
     users = user_data[message.chat.id]['users']
-    for user_id, username in users:
-        button_text = f"{username} (user_id: {user_id})"
+    for user_id, first_name, last_name in users:
+        button_text = f"{first_name} {last_name} (user_id: {user_id})"
         if message.text == button_text:
             user_data[message.chat.id]['user_id'] = user_id
-            bot.send_message(message.chat.id, f"Выбран пользователь: {username} (user_id: {user_id})",
+            bot.send_message(message.chat.id, f"Выбран пользователь: {first_name} {last_name} (user_id: {user_id})",
                              reply_markup=types.ReplyKeyboardRemove())
             ask_title(message)
-
 
 def ask_title(message):
     bot.send_message(message.chat.id, "Введите название задачи:")
