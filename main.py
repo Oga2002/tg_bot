@@ -14,7 +14,6 @@ bot = telebot.TeleBot("6955334520:AAHmzsW94i4x442at_XKUhynxNt7kZfe3L0")
 # Глобальная переменная для хранения состояния меню
 show_menu = False
 
-
 # Обработчик команды /start
 @bot.message_handler(commands=['start'])
 def main(message):
@@ -196,7 +195,7 @@ def show_users(message):
 
 
 # Регистрируем обработчик нажатия на кнопку выбора пользователя
-@bot.message_handler(func=lambda message: True)
+@bot.message_handler(regexp=r"^/add_task\b")
 def handle_user_selection(message):
     users = user_data[message.chat.id]['users']
     for user_id, first_name, last_name in users:
@@ -273,8 +272,6 @@ def save_task(message):
         # В случае возникновения ошибки, уведомляем пользователя
         bot.send_message(message.chat.id, f"Произошла ошибка: {e}")
 
-
-
 # Обработчик команды /menu
 @bot.message_handler(commands=['menu'])
 def menu(message):
@@ -294,27 +291,16 @@ def send_menu(chat_id):
 
     bot.send_message(chat_id, "Выберите нужную функцию:", reply_markup=markup)
 
-
 # Обработчик нажатия на кнопку "Меню"
 @bot.message_handler(func=lambda message: message.text == 'Меню')
 def handle_menu(message):
     send_menu(message.chat.id)
 
 
-# Удаляем клавиатуру после выбора функции
 @bot.message_handler(func=lambda message: True)
-def hide_menu(message):
-    global show_menu
-    if show_menu:
-        bot.send_message(message.chat.id, "Чтобы вернуться к меню, используйте команду /menu",
-                         reply_markup=types.ReplyKeyboardRemove())
-        show_menu = False
-
-
-
-
-
-
+def handle_invalid_command(message):
+    bot.send_message(message.chat.id, "Извините, такой команды не существует."
+                                      "Пожалуйста, воспользуйтесь командой /help для получения списка доступных команд.")
 
 
 
