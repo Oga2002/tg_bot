@@ -3,10 +3,32 @@ from telebot import types
 from datetime import datetime, timedelta
 
 
+
 # Импортируем sqlite3 для работы с базой данных
 import sqlite3
 
-user_data = {}
+
+role_commands = {
+    "сотрудник": [
+        ("/tasks", "Посмотреть список задач"),
+        ("/events", "Посмотреть календарь событий"),
+        ("/contacts", "Найти контакты сотрудников"),
+        ("/faq", "Получить ответы на часто задаваемые вопросы")
+    ],
+    "руководитель": [
+        ("/tasks", "Посмотреть список задач"),
+        ("/events", "Посмотреть календарь событий"),
+        ("/contacts", "Найти контакты сотрудников"),
+        ("/reports", "Получить отчеты о ходе выполнения задач")
+    ],
+    "администратор": [
+        ("/tasks", "Посмотреть список задач"),
+        ("/events", "Посмотреть календарь событий"),
+        ("/contacts", "Найти контакты сотрудников"),
+        ("/users", "Управлять пользователями"),
+        ("/settings", "Настроить бота")
+    ]
+}
 
 # Инициализация бота
 bot = telebot.TeleBot("6955334520:AAHmzsW94i4x442at_XKUhynxNt7kZfe3L0")
@@ -14,23 +36,98 @@ bot = telebot.TeleBot("6955334520:AAHmzsW94i4x442at_XKUhynxNt7kZfe3L0")
 # Глобальная переменная для хранения состояния меню
 show_menu = False
 
+# Словарь для хранения идентификаторов пользователей и их ролей
+user_data = {}
+user_role = {}
+
 # Обработчик команды /start
 @bot.message_handler(commands=['start'])
-def main(message):
-    bot.send_message(message.chat.id,
-                     'Привет! Я корпоративный телеграм-бот. Для получения помощи используй команду /help')
+def start(message):
+    bot.send_message(message.chat.id, "Введите ваше имя пользователя (username):")
+    bot.register_next_step_handler(message, authenticate_username)
+
+
+# Функция для проверки аутентификации пользователя
+def authenticate_user(username, password):
+    try:
+        connection = sqlite3.connect("tg_bot.db")
+        cursor = connection.cursor()
+        cursor.execute("SELECT id, first_name, last_name, role FROM users WHERE username = ? AND password = ?", (username, password))
+        user = cursor.fetchone()
+        cursor.close()
+        connection.close()
+        return user  # Возвращает кортеж (id, first_name, last_name, role) или None, если пользователь не найден
+    except Exception as e:
+        print(f"Ошибка аутентификации: {e}")
+        return None
+
+
+# Обработчик команды /start
+@bot.message_handler(commands=['start'])
+def start(message):
+    bot.send_message(message.chat.id, "Введите ваше имя пользователя (username):")
+    bot.register_next_step_handler(message, authenticate_username)
+
+# Обработчик для аутентификации имени пользователя
+def authenticate_username(message):
+    username = message.text.strip()
+    bot.send_message(message.chat.id, "Введите ваш пароль:")
+    bot.register_next_step_handler(message, lambda msg: authenticate_password(msg, username))
+
+# Функция для успешной аутентификации
+def successful_authentication(message, user):
+    global user_role  # Объявляем переменную user_role как глобальную
+    user_id, first_name, last_name, role = user
+    bot.send_message(message.chat.id, f"Авторизация успешна! Добро пожаловать, {first_name} {last_name}! Ваша роль: {role}.")
+    user_role = {'user_id': user_id, 'role': role}
+    print(user_role)
+
+# Обработчик для аутентификации пароля
+def authenticate_password(message, username):
+    password = message.text.strip()
+    user = authenticate_user(username, password)
+    if user:
+        successful_authentication(message, user)  # Вызов функции успешной аутентификации
+        user_id, x, y, role = user
+        if role == 'сотрудник':
+            # Предоставить доступ к функциям для сотрудника
+            employee_functions(message)
+        elif role == 'руководитель':
+            # Предоставить доступ к функциям для руководителя
+            manager_functions(message)
+        elif role == 'администратор':
+            # Предоставить доступ к функциям для администратора
+            admin_functions(message)
+    else:
+        bot.send_message(message.chat.id, "Неверное имя пользователя или пароль. Попробуйте еще раз.")
+
+# Функции для сотрудника, руководителя и администратора
+def employee_functions(message):
+    # Реализация доступных функций для сотрудника
+    pass
+
+def manager_functions(message):
+    # Реализация доступных функций для руководителя
+    pass
+
+def admin_functions(message):
+    # Реализация доступных функций для администратора
+    pass
 
 
 # Обработчик команды /help
 @bot.message_handler(commands=['help'])
 def help(message):
-    help_text = "Я могу помочь тебе со следующими задачами:\n\n" \
-                "/tasks - посмотреть список задач\n" \
-                "/events - посмотреть календарь событий\n" \
-                "/contacts - найти контакты сотрудников\n" \
-                "/faq - получить ответы на часто задаваемые вопросы\n"\
-                "/add_task - добавить задание"
-    bot.send_message(message.chat.id, help_text)
+    try:
+        role = user_role["role"]
+        # Формирование текста помощи
+        help_text = "Я могу помочь тебе со следующими задачами:\n\n"
+        for command in role_commands[role]:
+            help_text += f"{command} - ...\n"
+        bot.send_message(message.chat.id, help_text)
+    except KeyError:
+        bot.send_message(message.chat.id, "Для доступа к командам необходимо авторизоваться.")
+
 
 
 # Обработчик команды /events
@@ -133,7 +230,38 @@ def find_contact(message):
     connection.close()
 
 
+@bot.message_handler(commands=['tasks'])
+def tasks(message):
+    # Получаем список задач из базы данных
+    tasks = get_tasks()
 
+    if tasks:
+        response = "Список задач:\n"
+        for task in tasks:
+            task_info = f"📝 *Название:* {task[2]}\n\n_{task[3]}_\n\n🕒 *Срок выполнения:* {task[4]}\n📌 *Статус:* {task[5]}\n\n"
+            response += task_info
+        bot.send_message(message.chat.id, response)
+    else:
+        bot.send_message(message.chat.id, "Список задач пуст.")
+
+def get_tasks():
+    try:
+        # Подключение к базе данных
+        connection = sqlite3.connect("tg_bot.db")
+        cursor = connection.cursor()
+
+        # Запрос к базе данных для получения задач
+        cursor.execute("SELECT * FROM tasks")
+        tasks = cursor.fetchall()
+
+        # Закрытие соединения с базой данных
+        cursor.close()
+        connection.close()
+
+        return tasks
+    except Exception as e:
+        print(f"Ошибка при получении списка задач: {e}")
+        return None
 
 @bot.message_handler(commands=['faq'])
 def faq(message):
