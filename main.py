@@ -1,7 +1,7 @@
 import telebot
 from telebot import types
 from datetime import datetime, timedelta
-
+import time
 
 
 # Импортируем sqlite3 для работы с базой данных
@@ -98,12 +98,18 @@ def successful_authentication(message, user):
     global user_role  # Объявляем переменную user_role как глобальную
     user_id, first_name, last_name, role = user
     bot.send_message(message.chat.id, f"Авторизация успешна! Добро пожаловать, {first_name} {last_name}! Ваша роль: {role}.")
-    user_role = {'user_id': user_id, 'role': role, 'name': first_name + " " + last_name}
+    user_role = {'user_id': user_id, 'role': role, 'name': first_name + " " + last_name, 'tg_id': message.from_user.id}
     print(user_role)
     if user_role['role'] == "сотрудник":
         show_employee_menu(message.chat.id)
     elif user_role['role'] == "руководитель":
         show_manager_menu(message.chat.id)
+
+    # После успешной аутентификации включаем отслеживание новых задач
+    # Запуск функции проверки новых задач
+    while True:
+        track_new_tasks()
+        time.sleep(10)  # Интервал проверки (в секундах)
 
 # Обработчик для аутентификации пароля
 def authenticate_password(message, username):
@@ -368,12 +374,6 @@ def get_tasks2():
         print(f"Ошибка при получении списка задач: {e}")
         return None
 
-
-
-    '''asasasassaasasas'''
-
-
-
 @bot.message_handler(commands=['faq'])
 def faq(message):
     # Подключаемся к базе данных
@@ -549,6 +549,25 @@ def handle_menu(message):
 def handle_invalid_command(message):
     bot.send_message(message.chat.id, "Извините, такой команды не существует."
                                       "Пожалуйста, воспользуйтесь командой /help для получения списка доступных команд.")
+
+
+# Функция для проверки новых задач
+def track_new_tasks():
+    connection = sqlite3.connect("tg_bot.db")
+    cursor = connection.cursor()
+
+    # Запрос для выборки новых задач
+    cursor.execute(f"SELECT * FROM tasks WHERE user_id = {user_role['user_id']} AND status = 'Новая'")
+    new_tasks = cursor.fetchall()
+
+    cursor.close()
+    connection.close()
+
+    # Отправка уведомлений о новых задачах
+    for task in new_tasks:
+        task_info = f" *Новая задача:*\n\n*Название:* {task[2]}\n\n_{task[3]}_\n\n*Срок выполнения:* {task[4]}\n\n"
+        bot.send_message(user_role['tg_id'], task_info, parse_mode="Markdown")
+
 
 
 
