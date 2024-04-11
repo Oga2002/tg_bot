@@ -43,9 +43,11 @@ user_role = {}
 # Обработчик команды /start
 @bot.message_handler(commands=['start'])
 def start(message):
-    bot.send_message(message.chat.id, "Введите ваше имя пользователя (username):")
-    bot.register_next_step_handler(message, authenticate_username)
-
+    if not user_role:
+        bot.send_message(message.chat.id, "Введите ваше имя пользователя (username):")
+        bot.register_next_step_handler(message, authenticate_username)
+    else:
+        bot.send_message(message.chat.id, "Вы уже авторизованы")
 
 # Функция для проверки аутентификации пользователя
 def authenticate_user(username, password):
@@ -79,7 +81,7 @@ def successful_authentication(message, user):
     global user_role  # Объявляем переменную user_role как глобальную
     user_id, first_name, last_name, role = user
     bot.send_message(message.chat.id, f"Авторизация успешна! Добро пожаловать, {first_name} {last_name}! Ваша роль: {role}.")
-    user_role = {'user_id': user_id, 'role': role}
+    user_role = {'user_id': user_id, 'role': role, 'name': first_name + " " + last_name}
     print(user_role)
 
 # Обработчик для аутентификации пароля
@@ -88,32 +90,8 @@ def authenticate_password(message, username):
     user = authenticate_user(username, password)
     if user:
         successful_authentication(message, user)  # Вызов функции успешной аутентификации
-        user_id, x, y, role = user
-        if role == 'сотрудник':
-            # Предоставить доступ к функциям для сотрудника
-            employee_functions(message)
-        elif role == 'руководитель':
-            # Предоставить доступ к функциям для руководителя
-            manager_functions(message)
-        elif role == 'администратор':
-            # Предоставить доступ к функциям для администратора
-            admin_functions(message)
     else:
         bot.send_message(message.chat.id, "Неверное имя пользователя или пароль. Попробуйте еще раз.")
-
-# Функции для сотрудника, руководителя и администратора
-def employee_functions(message):
-    # Реализация доступных функций для сотрудника
-    pass
-
-def manager_functions(message):
-    # Реализация доступных функций для руководителя
-    pass
-
-def admin_functions(message):
-    # Реализация доступных функций для администратора
-    pass
-
 
 # Обработчик команды /help
 @bot.message_handler(commands=['help'])
@@ -232,19 +210,106 @@ def find_contact(message):
 
 @bot.message_handler(commands=['tasks'])
 def tasks(message):
-    # Получаем список задач из базы данных
-    tasks = get_tasks()
+    if user_role['role'] == "руководитель":
+        # Получаем список задач из базы данных
+        tasks = get_tasks1()
 
-    if tasks:
-        response = "Список задач:\n"
-        for task in tasks:
-            task_info = f"📝 *Название:* {task[2]}\n\n_{task[3]}_\n\n🕒 *Срок выполнения:* {task[4]}\n📌 *Статус:* {task[5]}\n\n"
-            response += task_info
-        bot.send_message(message.chat.id, response)
-    else:
-        bot.send_message(message.chat.id, "Список задач пуст.")
+        if tasks:
+            response = "Список задач:\n"
+            for task in tasks:
+                task_info = f" *Название:* {task[2]}\n\n_{task[3]}_\n\n *Срок выполнения:* {task[4]}\n *Статус:* {task[5]}\n\n"
+                response += task_info
+            bot.send_message(message.chat.id, response)
+        else:
+            bot.send_message(message.chat.id, "Список задач пуст.")
 
-def get_tasks():
+    elif user_role['role'] == "сотрудник":
+        # Получаем список задач из базы данных
+        tasks = get_tasks2()
+
+        if tasks:
+            response = "Список задач:\n"
+            for task in tasks:
+                task_info = f"📝 *Название:* {task[2]}\n\n_{task[3]}_\n\n🕒 *Срок выполнения:* {task[4]}\n📌 *Статус:* {task[5]}\n\n"
+                response += task_info
+            bot.send_message(message.chat.id, response, parse_mode="Markdown")
+
+            # Просим пользователя выбрать задачу
+            bot.send_message(message.chat.id, "Выберите задачу, чтобы изменить ее статус:")
+            show_task_buttons(message, tasks)
+        else:
+            bot.send_message(message.chat.id, "Список задач пуст.")
+
+
+# Функция для отображения кнопок с выбором задачи
+def show_task_buttons(message, tasks):
+    keyboard = types.InlineKeyboardMarkup()
+    for task in tasks:
+        keyboard.add(types.InlineKeyboardButton(text=task[2], callback_data=f"select_task:{task[0]}"))
+    bot.send_message(message.chat.id, "Выберите задачу:", reply_markup=keyboard)
+
+# Обработчик для выбора задачи
+@bot.callback_query_handler(func=lambda call: call.data.startswith("select_task"))
+def select_task(call):
+    try:
+        task_id = int(call.data.split(":")[1])
+        user_id = user_role['user_id']
+
+        # Проверяем, есть ли такая задача у данного пользователя
+        connection = sqlite3.connect("tg_bot.db")
+        cursor = connection.cursor()
+        cursor.execute("SELECT * FROM tasks WHERE id = ? AND user_id = ?", (task_id, user_id))
+        task = cursor.fetchone()
+        cursor.close()
+        connection.close()
+
+        if task:
+            # Запоминаем выбранную задачу для последующего обновления статуса
+            user_data[call.message.chat.id] = {"task_id": task_id}
+
+            # Просим пользователя выбрать новый статус
+            bot.send_message(call.message.chat.id, "Выберите новый статус для задачи:",
+                             reply_markup=create_status_keyboard())
+        else:
+            bot.send_message(call.message.chat.id, "Вы не можете выбрать эту задачу.")
+    except Exception as e:
+        print(f"Ошибка при выборе задачи: {e}")
+        bot.send_message(call.message.chat.id, "Произошла ошибка при выборе задачи.")
+
+# Функция для создания клавиатуры с кнопками статусов
+def create_status_keyboard():
+    keyboard = types.InlineKeyboardMarkup()
+    for status in ["В процессе", "Выполнена", "Отложена", "Отменена", "Ожидает подтверждения", "На утверждении"]:
+        keyboard.add(types.InlineKeyboardButton(text=status, callback_data=f"change_status:{status}"))
+    return keyboard
+
+# Обработчик для изменения статуса задачи
+@bot.callback_query_handler(func=lambda call: call.data.startswith("change_status"))
+def change_status(call):
+    try:
+        new_status = call.data.split(":")[1]
+        task_id = user_data.get(call.message.chat.id, {}).get("task_id")
+
+        if task_id:
+            # Обновляем статус задачи в базе данных
+            connection = sqlite3.connect("tg_bot.db")
+            cursor = connection.cursor()
+            cursor.execute("UPDATE tasks SET status = ? WHERE id = ?", (new_status, task_id))
+            connection.commit()
+            cursor.close()
+            connection.close()
+
+            # Отправляем сообщение об успешном обновлении статуса
+            bot.send_message(call.message.chat.id, f"Статус задачи успешно изменен на {new_status}.")
+        else:
+            bot.send_message(call.message.chat.id, "Не удалось определить выбранную задачу.")
+    except Exception as e:
+        print(f"Ошибка при изменении статуса задачи: {e}")
+        bot.send_message(call.message.chat.id, "Произошла ошибка при изменении статуса задачи.")
+
+
+
+def get_tasks1():
     try:
         # Подключение к базе данных
         connection = sqlite3.connect("tg_bot.db")
@@ -262,6 +327,31 @@ def get_tasks():
     except Exception as e:
         print(f"Ошибка при получении списка задач: {e}")
         return None
+
+def get_tasks2():
+    try:
+        # Подключение к базе данных
+        connection = sqlite3.connect("tg_bot.db")
+        cursor = connection.cursor()
+
+        # Запрос к базе данных для получения задач
+        cursor.execute(f"SELECT * FROM tasks WHERE user_id = {user_role['user_id']}")
+        tasks = cursor.fetchall()
+
+        # Закрытие соединения с базой данных
+        cursor.close()
+        connection.close()
+
+        return tasks
+    except Exception as e:
+        print(f"Ошибка при получении списка задач: {e}")
+        return None
+
+
+
+    '''asasasassaasasas'''
+
+
 
 @bot.message_handler(commands=['faq'])
 def faq(message):
@@ -291,7 +381,7 @@ def faq(message):
 def get_users():
     connection = sqlite3.connect("tg_bot.db")
     cursor = connection.cursor()
-    cursor.execute("SELECT id, first_name, last_name FROM users")
+    cursor.execute("SELECT id, first_name, last_name FROM users WHERE role = 'сотрудник'")
     users = cursor.fetchall()
     cursor.close()
     connection.close()
@@ -301,15 +391,21 @@ def get_users():
 # Обработчик команды /add_task
 @bot.message_handler(commands=["add_task"])
 def add_task(message):
-    # Получаем список пользователей из базы данных
-    users = get_users()
+    # Проверяем роль пользователя
+    if user_role["role"] == "руководитель":
+        # Получаем список пользователей из базы данных
+        users = get_users()
 
-    # Сохраняем список пользователей для последующего использования
-    user_data[message.chat.id] = {'users': users}
+        # Сохраняем список пользователей для последующего использования
+        user_data[message.chat.id] = {'users': users}
 
-    # Запрашиваем у пользователя выбор пользователя
-    bot.send_message(message.chat.id, "Выберите пользователя из списка:")
-    show_users(message)
+        # Запрашиваем у пользователя выбор пользователя
+        bot.send_message(message.chat.id, "Выберите пользователя из списка:")
+        show_users(message)
+    else:
+        # Если роль пользователя не "руководитель", отправляем сообщение о запрете доступа
+        bot.send_message(message.chat.id, "У вас нет доступа к этой команде.")
+
 
 
 # Функция для отображения списка пользователей
@@ -320,10 +416,10 @@ def show_users(message):
         button_text = f"{first_name} {last_name} (user_id: {user_id})"
         markup.add(types.KeyboardButton(button_text))
     bot.send_message(message.chat.id, "Выберите пользователя из списка:", reply_markup=markup)
+    bot.register_next_step_handler(message, handle_user_selection)
 
 
 # Регистрируем обработчик нажатия на кнопку выбора пользователя
-@bot.message_handler(regexp=r"^/add_task\b")
 def handle_user_selection(message):
     users = user_data[message.chat.id]['users']
     for user_id, first_name, last_name in users:
@@ -334,20 +430,24 @@ def handle_user_selection(message):
                              reply_markup=types.ReplyKeyboardRemove())
             ask_title(message)
 
+
 def ask_title(message):
     bot.send_message(message.chat.id, "Введите название задачи:")
     bot.register_next_step_handler(message, ask_description)
+
 
 def ask_description(message):
     user_data[message.chat.id]['title'] = message.text
     bot.send_message(message.chat.id, "Введите описание задачи:")
     bot.register_next_step_handler(message, ask_deadline)
 
+
 # Функция для запроса срока выполнения задачи у пользователя
 def ask_deadline(message):
     user_data[message.chat.id]['description'] = message.text
     bot.send_message(message.chat.id, "Введите срок выполнения задачи (YYYY-MM-DD):")
     bot.register_next_step_handler(message, ask_status)
+
 
 # Функция для запроса статуса задачи у пользователя
 def ask_status(message):
@@ -372,7 +472,6 @@ def ask_status(message):
     except Exception as e:
         # В случае возникновения ошибки, уведомляем пользователя
         bot.send_message(message.chat.id, f"Произошла ошибка: {e}")
-
 
 
 # Функция для сохранения задачи в базе данных
