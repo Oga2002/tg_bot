@@ -40,6 +40,26 @@ show_menu = False
 user_data = {}
 user_role = {}
 
+# Функция для отображения меню команд для сотрудника
+def show_employee_menu(chat_id):
+    commands_menu = "Доступные команды:\n"
+    commands_menu += "/help - Получить справку\n"
+    commands_menu += "/tasks - Просмотреть задачи\n"
+    commands_menu += "/faq - Часто задаваемые вопросы\n"
+    commands_menu += "/contacts - Контактная информация\n"
+    commands_menu += "/events - Просмотреть события\n"
+    bot.send_message(chat_id, commands_menu)
+
+# Функция для отображения меню команд для руководителя
+def show_manager_menu(chat_id):
+    commands_menu = "Доступные команды:\n"
+    commands_menu += "/help - Получить справку\n"
+    commands_menu += "/tasks - Просмотреть задачи\n"
+    commands_menu += "/faq - Часто задаваемые вопросы\n"
+    commands_menu += "/contacts - Контактная информация\n"
+    commands_menu += "/events - Просмотреть события\n"
+    bot.send_message(chat_id, commands_menu)
+
 # Обработчик команды /start
 @bot.message_handler(commands=['start'])
 def start(message):
@@ -48,6 +68,10 @@ def start(message):
         bot.register_next_step_handler(message, authenticate_username)
     else:
         bot.send_message(message.chat.id, "Вы уже авторизованы")
+        if user_role['role'] == "сотрудник":
+            show_employee_menu(message.chat.id)
+        elif user_role['role'] == "руководитель":
+            show_manager_menu(message.chat.id)
 
 # Функция для проверки аутентификации пользователя
 def authenticate_user(username, password):
@@ -63,13 +87,6 @@ def authenticate_user(username, password):
         print(f"Ошибка аутентификации: {e}")
         return None
 
-
-# Обработчик команды /start
-@bot.message_handler(commands=['start'])
-def start(message):
-    bot.send_message(message.chat.id, "Введите ваше имя пользователя (username):")
-    bot.register_next_step_handler(message, authenticate_username)
-
 # Обработчик для аутентификации имени пользователя
 def authenticate_username(message):
     username = message.text.strip()
@@ -83,6 +100,10 @@ def successful_authentication(message, user):
     bot.send_message(message.chat.id, f"Авторизация успешна! Добро пожаловать, {first_name} {last_name}! Ваша роль: {role}.")
     user_role = {'user_id': user_id, 'role': role, 'name': first_name + " " + last_name}
     print(user_role)
+    if user_role['role'] == "сотрудник":
+        show_employee_menu(message.chat.id)
+    elif user_role['role'] == "руководитель":
+        show_manager_menu(message.chat.id)
 
 # Обработчик для аутентификации пароля
 def authenticate_password(message, username):
