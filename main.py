@@ -33,8 +33,7 @@ role_commands = {
 # Инициализация бота
 bot = telebot.TeleBot("6955334520:AAHmzsW94i4x442at_XKUhynxNt7kZfe3L0")
 
-# Глобальная переменная для хранения состояния меню
-show_menu = False
+
 
 # Словарь для хранения идентификаторов пользователей и их ролей
 user_data = {}
@@ -549,28 +548,15 @@ def save_task(message):
 # Обработчик команды /menu
 @bot.message_handler(commands=['menu'])
 def menu(message):
-    global show_menu
-    show_menu = True
-    send_menu(message.chat.id)
+    if user_role['role'] == "сотрудник":
+        show_employee_menu(message.chat.id)
+    elif user_role['role'] == "руководитель":
+        show_manager_menu(message.chat.id)
 
 
-# Функция для отправки меню
-def send_menu(chat_id):
-    markup = types.ReplyKeyboardMarkup(row_width=2)
-    tasks_button = types.KeyboardButton('/tasks')
-    events_button = types.KeyboardButton('/events')
-    contacts_button = types.KeyboardButton('/contacts')
-    faq_button = types.KeyboardButton('/faq')
-    markup.add(tasks_button, events_button, contacts_button, faq_button)
-
-    bot.send_message(chat_id, "Выберите нужную функцию:", reply_markup=markup)
-
-# Обработчик нажатия на кнопку "Меню"
-@bot.message_handler(func=lambda message: message.text == 'Меню')
-def handle_menu(message):
-    send_menu(message.chat.id)
 
 
+#  Обработчик сообщений с недействительными командами
 @bot.message_handler(func=lambda message: True)
 def handle_invalid_command(message):
     bot.send_message(message.chat.id, "Извините, такой команды не существует."
