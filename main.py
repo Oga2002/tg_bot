@@ -39,6 +39,7 @@ show_menu = False
 # Словарь для хранения идентификаторов пользователей и их ролей
 user_data = {}
 user_role = {}
+old_tasks = []
 
 # Функция для отображения меню команд для сотрудника
 def show_employee_menu(chat_id):
@@ -553,18 +554,22 @@ def handle_invalid_command(message):
 
 # Функция для проверки новых задач
 def track_new_tasks():
+    global old_tasks
     connection = sqlite3.connect("tg_bot.db")
     cursor = connection.cursor()
-
+    result = []
     # Запрос для выборки новых задач
-    cursor.execute(f"SELECT * FROM tasks WHERE user_id = {user_role['user_id']} AND status = 'Новая'")
+    cursor.execute(f"SELECT * FROM tasks WHERE user_id = {user_role['user_id']}")
     new_tasks = cursor.fetchall()
-
+    for task in new_tasks:
+        if task not in old_tasks:
+            result.append(task)
+            old_tasks.append(task)
     cursor.close()
     connection.close()
 
     # Отправка уведомлений о новых задачах
-    for task in new_tasks:
+    for task in result:
         task_info = f" *Новая задача:*\n\n*Название:* {task[2]}\n\n_{task[3]}_\n\n*Срок выполнения:* {task[4]}\n\n"
         bot.send_message(user_role['tg_id'], task_info, parse_mode="Markdown")
 
