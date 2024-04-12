@@ -43,23 +43,36 @@ old_tasks = []
 
 # Функция для отображения меню команд для сотрудника
 def show_employee_menu(chat_id):
-    commands_menu = "Доступные команды:\n"
-    commands_menu += "/help - Получить справку\n"
-    commands_menu += "/tasks - Просмотреть задачи\n"
-    commands_menu += "/faq - Часто задаваемые вопросы\n"
-    commands_menu += "/contacts - Контактная информация\n"
-    commands_menu += "/events - Просмотреть события\n"
-    bot.send_message(chat_id, commands_menu)
+    keyboard = types.ReplyKeyboardMarkup(row_width=1, resize_keyboard=True)
+    buttons = [
+        types.KeyboardButton("/help - Получить справку"),
+        types.KeyboardButton("/tasks - Просмотреть задачи"),
+        types.KeyboardButton("/faq - Часто задаваемые вопросы"),
+        types.KeyboardButton("/contacts - Контактная информация"),
+        types.KeyboardButton("/events - Просмотреть события")
+    ]
+    keyboard.add(*buttons)
+    bot.send_message(chat_id, "Доступные команды для сотрудника:", reply_markup=keyboard)
 
 # Функция для отображения меню команд для руководителя
 def show_manager_menu(chat_id):
-    commands_menu = "Доступные команды:\n"
-    commands_menu += "/help - Получить справку\n"
-    commands_menu += "/tasks - Просмотреть задачи\n"
-    commands_menu += "/faq - Часто задаваемые вопросы\n"
-    commands_menu += "/contacts - Контактная информация\n"
-    commands_menu += "/events - Просмотреть события\n"
-    bot.send_message(chat_id, commands_menu)
+    keyboard = types.ReplyKeyboardMarkup(row_width=1, resize_keyboard=True)
+    buttons = [
+        types.KeyboardButton("/help - Получить справку"),
+        types.KeyboardButton("/tasks - Просмотреть задачи"),
+        types.KeyboardButton("/faq - Часто задаваемые вопросы"),
+        types.KeyboardButton("/contacts - Контактная информация"),
+        types.KeyboardButton("/events - Просмотреть события")
+    ]
+    keyboard.add(*buttons)
+    bot.send_message(chat_id, "Доступные команды для руководителя:", reply_markup=keyboard)
+
+# Обработчик команды /out
+@bot.message_handler(commands=['out'])
+def out(message):
+    global user_role
+    user_role = {}
+    bot.send_message(message.chat.id, "Вы вышли ")
 
 # Обработчик команды /start
 @bot.message_handler(commands=['start'])
@@ -70,9 +83,21 @@ def start(message):
     else:
         bot.send_message(message.chat.id, "Вы уже авторизованы")
         if user_role['role'] == "сотрудник":
-            show_employee_menu(message.chat.id)
+            commands_menu = "Доступные команды:\n"
+            commands_menu += "/help - Получить справку\n"
+            commands_menu += "/tasks - Просмотреть задачи\n"
+            commands_menu += "/faq - Часто задаваемые вопросы\n"
+            commands_menu += "/contacts - Контактная информация\n"
+            commands_menu += "/events - Просмотреть события\n"
+            bot.send_message(message.chat.id, commands_menu)
         elif user_role['role'] == "руководитель":
-            show_manager_menu(message.chat.id)
+            commands_menu = "Доступные команды:\n"
+            commands_menu += "/help - Получить справку\n"
+            commands_menu += "/tasks - Просмотреть задачи\n"
+            commands_menu += "/faq - Часто задаваемые вопросы\n"
+            commands_menu += "/contacts - Контактная информация\n"
+            commands_menu += "/events - Просмотреть события\n"
+            bot.send_message(message.chat.id, commands_menu)
 
 # Функция для проверки аутентификации пользователя
 def authenticate_user(username, password):
