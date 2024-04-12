@@ -606,6 +606,7 @@ def add_event_handler(message):
         # Если роль пользователя не "руководитель", отправляем сообщение о запрете доступа
         bot.send_message(message.chat.id, "У вас нет доступа к этой команде.")
 
+
 # Функция для получения названия события
 def get_title(message):
     title = message.text.strip()
@@ -636,5 +637,10 @@ def save_event(message, title, description, date_time, location):
     else:
         bot.send_message(message.chat.id, "Ошибка при добавлении события. Попробуйте еще раз.")
 
+# Обработчик сообщений с недействительными командами
+@bot.message_handler(func=lambda message: True)
+def handle_invalid_command(message):
+    bot.send_message(message.chat.id, "Извините, такой команды не существует. "
+                                      "Пожалуйста, воспользуйтесь командой /help для получения списка доступных команд.")
 
 bot.polling(none_stop=True)
