@@ -553,16 +553,6 @@ def menu(message):
     elif user_role['role'] == "руководитель":
         show_manager_menu(message.chat.id)
 
-
-
-
-#  Обработчик сообщений с недействительными командами
-@bot.message_handler(func=lambda message: True)
-def handle_invalid_command(message):
-    bot.send_message(message.chat.id, "Извините, такой команды не существует."
-                                      "Пожалуйста, воспользуйтесь командой /help для получения списка доступных команд.")
-
-
 # Функция для проверки новых задач
 def track_new_tasks():
     global old_tasks
@@ -584,7 +574,67 @@ def track_new_tasks():
         task_info = f" *Новая задача:*\n\n*Название:* {task[2]}\n\n_{task[3]}_\n\n*Срок выполнения:* {task[4]}\n\n"
         bot.send_message(user_role['tg_id'], task_info, parse_mode="Markdown")
 
+# Функция для добавления события в таблицу events
+def add_event(title, description, date_time, location):
+    try:
+        # Подключение к базе данных
+        connection = sqlite3.connect("tg_bot.db")
+        cursor = connection.cursor()
 
+        # Вставка нового события в таблицу events
+        cursor.execute("INSERT INTO events (title, description, date_time, location) VALUES (?, ?, ?, ?)",
+                       (title, description, date_time, location))
+        connection.commit()
+
+        # Закрытие соединения с базой данных
+        cursor.close()
+        connection.close()
+
+        return True  # Успешно добавлено
+    except Exception as e:
+        print(f"Ошибка при добавлении события: {e}")
+        return False  # Ошибка при добавлении
+
+# Обработчик команды /add_event
+@bot.message_handler(commands=['add_event'])
+def add_event_handler(message):
+    # Проверяем роль пользователя
+    if user_role["role"] == "руководитель":
+        bot.send_message(message.chat.id, "Введите название события:")
+        bot.register_next_step_handler(message, get_title)
+    else:
+        # Если роль пользователя не "руководитель", отправляем сообщение о запрете доступа
+        bot.send_message(message.chat.id, "У вас нет доступа к этой команде.")
+
+# Функция для получения названия события
+def get_title(message):
+    title = message.text.strip()
+    bot.send_message(message.chat.id, "Введите описание события:")
+    bot.register_next_step_handler(message, lambda msg: get_description(msg, title))
+
+# Функция для получения описания события
+def get_description(message, title):
+    description = message.text.strip()
+    bot.send_message(message.chat.id, "Введите дату и время события (в формате YYYY-MM-DD HH:MM):")
+    bot.register_next_step_handler(message, lambda msg: get_date_time(msg, title, description))
+
+# Функция для получения даты и времени события
+def get_date_time(message, title, description):
+    date_time = message.text.strip()
+    bot.send_message(message.chat.id, "Введите место проведения события:")
+    bot.register_next_step_handler(message, lambda msg: get_location(msg, title, description, date_time))
+
+# Функция для получения места проведения события
+def get_location(message, title, description, date_time):
+    location = message.text.strip()
+    save_event(message, title, description, date_time, location)
+
+# Функция для сохранения события в базу данных
+def save_event(message, title, description, date_time, location):
+    if add_event(title, description, date_time, location):
+        bot.send_message(message.chat.id, "Событие успешно добавлено!")
+    else:
+        bot.send_message(message.chat.id, "Ошибка при добавлении события. Попробуйте еще раз.")
 
 
 bot.polling(none_stop=True)
