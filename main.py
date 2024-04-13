@@ -42,29 +42,34 @@ old_tasks = []
 
 # Функция для отображения меню команд для сотрудника
 def show_employee_menu(chat_id):
-    keyboard = types.ReplyKeyboardMarkup(row_width=1, resize_keyboard=True)
+    keyboard = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
     buttons = [
         types.KeyboardButton("/help - Получить справку"),
         types.KeyboardButton("/tasks - Просмотреть задачи"),
         types.KeyboardButton("/faq - Часто задаваемые вопросы"),
         types.KeyboardButton("/contacts - Контактная информация"),
-        types.KeyboardButton("/events - Просмотреть события")
+        types.KeyboardButton("/events - Просмотреть события"),
+        types.KeyboardButton("/out - Выйти из учётной записи.")
     ]
     keyboard.add(*buttons)
     bot.send_message(chat_id, "Доступные команды для сотрудника:", reply_markup=keyboard)
 
 # Функция для отображения меню команд для руководителя
 def show_manager_menu(chat_id):
-    keyboard = types.ReplyKeyboardMarkup(row_width=1, resize_keyboard=True)
+    keyboard = types.ReplyKeyboardMarkup(row_width=2, resize_keyboard=True)
     buttons = [
         types.KeyboardButton("/help - Получить справку"),
         types.KeyboardButton("/tasks - Просмотреть задачи"),
+        types.KeyboardButton("/add_task - Создать новую задачу"),
         types.KeyboardButton("/faq - Часто задаваемые вопросы"),
         types.KeyboardButton("/contacts - Контактная информация"),
-        types.KeyboardButton("/events - Просмотреть события")
+        types.KeyboardButton("/events - Просмотреть события"),
+        types.KeyboardButton("/add_event - Создать новое событие"),
+        types.KeyboardButton("/out - Выйти из учётной записи")
     ]
     keyboard.add(*buttons)
     bot.send_message(chat_id, "Доступные команды для руководителя:", reply_markup=keyboard)
+
 
 # Обработчик команды /out
 @bot.message_handler(commands=['out'])
@@ -175,8 +180,13 @@ def events(message):
         if remaining_events:
             bot.send_message(message.chat.id, "Список предстоящих событий:")
             for event in remaining_events:
-                event_info = f"📅 *{event[1]}*\n\n_{event[2]}_\n\n🕒 *Дата и время:* {event[3]}\n📍 *Местоположение:* {event[4]}"
-                bot.send_message(message.chat.id, event_info, parse_mode='Markdown')
+                event_info = (
+                    f"*{event[1]}*\n\n"  # Название события (жирный)
+                    f"_{event[2]}_\n\n"  # Описание события (курсив)
+                    f"Дата и время: {event[3]}\n"  # Дата и время события
+                    f"Местоположение: {event[4]}"  # Местоположение события
+                )
+                bot.send_message(message.chat.id, event_info, parse_mode="Markdown")
         else:
             bot.send_message(message.chat.id, "К сожалению, нет предстоящих событий.")
     else:
@@ -269,7 +279,16 @@ def tasks(message):
         if tasks:
             response = "Список задач:\n"
             for task in tasks:
-                task_info = f" *Название:* {task[2]}\n\n_{task[3]}_\n\n *Срок выполнения:* {task[4]}\n *Статус:* {task[5]}\n\n"
+                # Получаем имя и фамилию пользователя по его user_id
+                user_name = get_user_name(task[1])
+                # Формируем информацию о задаче
+                task_info = (
+                    f"Название задачи: {task[2]}\n"
+                    f"{task[3]}_\n"
+                    f"Исполнитель: {user_name}\n"
+                    f"Срок выполнения: {task[4]}\n"
+                    f"Статус: {task[5]}\n\n"
+                )
                 response += task_info
             bot.send_message(message.chat.id, response)
         else:
@@ -282,9 +301,9 @@ def tasks(message):
         if tasks:
             response = "Список задач:\n"
             for task in tasks:
-                task_info = f"📝 *Название:* {task[2]}\n\n_{task[3]}_\n\n🕒 *Срок выполнения:* {task[4]}\n📌 *Статус:* {task[5]}\n\n"
+                task_info = f"Название: {task[2]}\n\n_{task[3]}_\n\n Срок выполнения: {task[4]}\n Статус: {task[5]}\n\n"
                 response += task_info
-            bot.send_message(message.chat.id, response, parse_mode="Markdown")
+            bot.send_message(message.chat.id, response)
 
             # Просим пользователя выбрать задачу
             bot.send_message(message.chat.id, "Выберите задачу, чтобы изменить ее статус:")
@@ -379,6 +398,38 @@ def get_tasks1():
     except Exception as e:
         print(f"Ошибка при получении списка задач: {e}")
         return None
+
+def get_user_name(user_id):
+    try:
+        # Подключение к базе данных
+        connection = sqlite3.connect("tg_bot.db")
+        cursor = connection.cursor()
+
+        # Проверка наличия столбца user_id
+        cursor.execute("PRAGMA table_info(users)")
+        columns = cursor.fetchall()
+        user_id_exists = any(column[1] == 'user_id' for column in columns)
+
+        if not user_id_exists:
+            return "Неизвестный пользователь"
+
+        # Запрос к базе данных для получения имени и фамилии пользователя по его user_id
+        cursor.execute("SELECT first_name, last_name FROM users WHERE user_id = ?", (user_id,))
+        user_data = cursor.fetchone()
+
+        # Закрытие соединения с базой данных
+        cursor.close()
+        connection.close()
+
+        if user_data:
+            user_name = f"{user_data[0]} {user_data[1]}"
+            return user_name
+        else:
+            return "Неизвестный пользователь"
+    except Exception as e:
+        print(f"Ошибка при получении имени пользователя: {e}")
+        return "Неизвестный пользователь"
+
 
 def get_tasks2():
     try:
@@ -571,8 +622,8 @@ def track_new_tasks():
 
     # Отправка уведомлений о новых задачах
     for task in result:
-        task_info = f" *Новая задача:*\n\n*Название:* {task[2]}\n\n_{task[3]}_\n\n*Срок выполнения:* {task[4]}\n\n"
-        bot.send_message(user_role['tg_id'], task_info, parse_mode="Markdown")
+        task_info = f" Новая задача:\n\nНазвание: {task[2]}\n\n_{task[3]}_\n\nСрок выполнения: {task[4]}\n\n"
+        bot.send_message(user_role['tg_id'], task_info)
 
 # Функция для добавления события в таблицу events
 def add_event(title, description, date_time, location):
