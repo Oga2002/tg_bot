@@ -277,20 +277,18 @@ def tasks(message):
         tasks = get_tasks1()
 
         if tasks:
-            response = "Список задач:\n"
             for task in tasks:
                 # Получаем имя и фамилию пользователя по его user_id
                 user_name = get_user_name(task[1])
                 # Формируем информацию о задаче
                 task_info = (
-                    f"Название задачи: {task[2]}\n"
-                    f"{task[3]}_\n"
-                    f"Исполнитель: {user_name}\n"
-                    f"Срок выполнения: {task[4]}\n"
-                    f"Статус: {task[5]}\n\n"
+                    f"📝 *Название задачи:* {task[2]}\n"  # Название задачи (жирный)
+                    f"_{task[3]}_\n"  # Описание задачи (курсив)
+                    f"👤 Исполнитель: {user_name}\n"  # Имя исполнителя
+                    f"⏰ Срок выполнения: {task[4]}\n"  # Срок выполнения задачи
+                    f"🔵 Статус: {task[5]}\n\n"  # Статус задачи
                 )
-                response += task_info
-            bot.send_message(message.chat.id, response)
+                bot.send_message(message.chat.id, task_info, parse_mode="Markdown")
         else:
             bot.send_message(message.chat.id, "Список задач пуст.")
 
@@ -404,17 +402,8 @@ def get_user_name(user_id):
         # Подключение к базе данных
         connection = sqlite3.connect("tg_bot.db")
         cursor = connection.cursor()
-
-        # Проверка наличия столбца user_id
-        cursor.execute("PRAGMA table_info(users)")
-        columns = cursor.fetchall()
-        user_id_exists = any(column[1] == 'user_id' for column in columns)
-
-        if not user_id_exists:
-            return "Неизвестный пользователь"
-
         # Запрос к базе данных для получения имени и фамилии пользователя по его user_id
-        cursor.execute("SELECT first_name, last_name FROM users WHERE user_id = ?", (user_id,))
+        cursor.execute("SELECT first_name, last_name FROM users WHERE id = ?", (user_id,))
         user_data = cursor.fetchone()
 
         # Закрытие соединения с базой данных
