@@ -336,7 +336,8 @@ def select_task(call):
 # Функция для создания клавиатуры с кнопками статусов
 def create_status_keyboard():
     keyboard = types.InlineKeyboardMarkup()
-    for status in ["В процессе", "Выполнена", "Отложена", "Отменена", "Ожидает подтверждения", "На утверждении"]:
+    for status in ["В процессе", "Выполнена", "Отложена", "Отменена", "Ожидает подтверждения", "На утверждении",
+                   "Планируется"]:
         keyboard.add(types.InlineKeyboardButton(text=status, callback_data=f"change_status:{status}"))
     return keyboard
 
@@ -588,7 +589,8 @@ def track_new_tasks():
     cursor = connection.cursor()
     result = []
     # Запрос для выборки новых задач
-    cursor.execute(f"SELECT * FROM tasks WHERE user_id = {user_role['user_id']}")
+    cursor.execute(f"SELECT * FROM tasks WHERE user_id = {user_role['user_id']} and status != 'Выполнена'")
+
     new_tasks = cursor.fetchall()
     for task in new_tasks:
         if task not in old_tasks:

@@ -7,7 +7,7 @@
 1. Склонируйте репозиторий на свой компьютер:
 
     ```bash
-    git clone https://github.com/your_username/your_telegram_bot.git
+    git clone https://github.com/Oga2002/tg_bot.git
     ```
 
 2. Установите необходимые зависимости:
