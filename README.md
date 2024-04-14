@@ -19,7 +19,7 @@
 3. Запустите бота:
 
     ```bash
-    python bot.py
+    python main.py
     ```
 
 ## Функциональность
